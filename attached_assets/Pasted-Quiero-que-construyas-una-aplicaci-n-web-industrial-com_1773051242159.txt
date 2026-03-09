@@ -1,0 +1,389 @@
+Quiero que construyas una aplicación web industrial completa, funcional y bien estructurada para un proyecto de digitalización de una fábrica de piensos. No quiero una landing page, sino una aplicación real tipo dashboard operativo, con frontend y backend, base de datos, API, interfaz responsive y estructura mantenible.
+
+CONTEXTO DEL NEGOCIO
+La aplicación pertenece a una fábrica de piensos para animales. La fábrica ya tiene un SCADA antiguo que controla la producción física, básculas, electroválvulas, mezcladora, molinos y tolvas. Esta nueva web NO debe conectarse ni controlar directamente el SCADA en esta fase. Debe funcionar como un sistema paralelo de apoyo a la decisión, un “shadow pilot” o “gemelo digital en paralelo”, sin riesgo operativo.
+
+OBJETIVO DE LA WEB
+La web debe servir para:
+1. Registrar la calidad real de materias primas al entrar en fábrica mediante análisis NIR.
+2. Registrar y visualizar sensores IoT ambientales de polvo, temperatura y humedad.
+3. Simular mezclas de pienso antes de fabricar físicamente.
+4. Predecir la calidad esperada del pienso final a partir de los lotes e ingredientes seleccionados.
+5. Registrar la verificación real del pienso terminado con un nuevo análisis NIR.
+6. Comparar predicción vs realidad y generar recomendaciones para futuras mezclas.
+7. Mantener trazabilidad completa desde la llegada del camión hasta el producto terminado.
+8. Lanzar alertas por riesgo ambiental o por desviaciones de calidad.
+9. Mostrar dashboards claros para operarios y responsables.
+
+REQUISITOS CLAVE
+- La fábrica recibe materias primas como maíz, soja, trigo, cebada, etc.
+- El problema actual es que no se conoce la calidad nutricional real en tiempo real al recibir la materia prima.
+- El operario debe poder registrar un lote de entrada y asociarle un análisis NIR.
+- La fábrica tiene riesgos ambientales:
+  - polvo en suspensión en zonas como molinos y elevadores
+  - humedad y temperatura en almacén de producto terminado
+- La web debe ayudar a reducir la dependencia de un analizador NIR inline caro y abrasivo.
+- La web debe aprender comparando la predicción de la mezcla con el análisis real del producto terminado.
+- En esta fase, la interacción con el proceso productivo será manual: el usuario introduce lotes, ingredientes, kilos y resultados.
+- NO quiero datos falsos, inventados o de ejemplo. La aplicación debe trabajar únicamente con datos guardados en la base de datos.
+- Si la base de datos está vacía, la app debe mostrar estados vacíos correctos y mensajes útiles como “Todavía no hay lotes registrados”.
+
+STACK TECNOLÓGICO
+Quiero una arquitectura moderna, clara y mantenible.
+Usa preferiblemente:
+- Frontend: React + TypeScript
+- UI: Tailwind CSS
+- Backend: Node.js + TypeScript
+- API: REST
+- Base de datos: PostgreSQL o SQLite si es más práctico en Replit
+- ORM: Prisma
+- Gráficos: Recharts
+- Formularios: React Hook Form + Zod
+
+Si consideras mejor usar Next.js full stack con App Router y TypeScript para simplificar el proyecto, úsalo. Prioriza que funcione bien y que el código quede ordenado.
+
+IDIOMA Y UX
+- Toda la interfaz debe estar en español.
+- El diseño debe ser sobrio, profesional y orientado a uso industrial.
+- Debe ser fácil de usar por personas no técnicas.
+- Debe haber navegación lateral clara, cabeceras, filtros, tablas y gráficos.
+- Debe incluir estados vacíos, validaciones y mensajes de error útiles.
+
+AUTENTICACIÓN
+No quiero roles por ahora.
+Quiero únicamente:
+1. Registro de usuario
+2. Login de usuario
+3. Persistencia de usuarios en base de datos
+4. Contraseña almacenada de forma segura, con hash, nunca en texto plano
+5. Sesión iniciada correctamente
+6. Posibilidad de cerrar sesión
+
+REQUISITOS DEL LOGIN/REGISTRO
+- La primera pantalla de la app debe ser la de login/registro.
+- Debe haber opción para crear cuenta.
+- Campos mínimos:
+  - nombre
+  - email o nombre de usuario
+  - contraseña
+- Validaciones:
+  - email válido si se usa email
+  - contraseña mínima
+  - usuario no duplicado
+- Guardar usuarios en base de datos
+- Usar autenticación segura con sesiones o JWT/cookies seguras
+- Proteger las rutas internas: si no hay sesión, redirigir al login
+- Al iniciar sesión correctamente, acceder al dashboard
+
+MÓDULOS OBLIGATORIOS
+
+1. Dashboard principal
+Debe mostrar información real procedente de la base de datos:
+- número de lotes recibidos
+- últimas analíticas NIR
+- alertas activas
+- estado ambiental por zonas
+- últimas simulaciones realizadas
+- desviaciones entre predicción y resultado real
+
+Si no hay datos, mostrar tarjetas vacías con textos claros, sin inventar cifras.
+
+2. Módulo de recepción de materias primas
+Debe permitir:
+- crear lote de entrada
+- registrar proveedor
+- fecha y hora
+- tipo de materia prima
+- código de lote
+- cantidad
+- ubicación o tolva destino
+- observaciones
+- registrar análisis NIR asociado
+
+Campos NIR sugeridos:
+- humedad
+- proteína
+- grasa
+- almidón
+- fibra
+- cenizas
+- otros parámetros configurables
+
+Debe existir una vista de listado y una ficha detallada del lote.
+
+3. Módulo de sensores IoT y monitorización ambiental
+Debe permitir visualizar:
+- sensores de polvo por zona
+- sensores de temperatura y humedad por zona
+- estado del sensor
+- último dato recibido
+- histórico por rango de fechas
+- nivel de alerta
+
+Zonas sugeridas:
+- recepción
+- piqueras
+- molinos
+- elevadores
+- mezcladora
+- almacén de producto terminado
+- ensacado
+
+Para esta primera versión, implementa ingestión de datos de sensores de estas dos formas:
+A. entrada manual desde la interfaz
+B. endpoint API para recibir datos reales desde dispositivos o integraciones futuras
+
+Cada sensor debe tener:
+- nombre
+- tipo
+- zona
+- unidad de medida
+- estado
+- batería opcional
+- fecha del último dato
+- umbrales de alerta
+
+4. Módulo de simulación de mezcla / gemelo digital
+Debe permitir al usuario:
+- seleccionar una receta teórica o crear una mezcla manual
+- añadir ingredientes/lotes
+- indicar kilos por ingrediente
+- ver automáticamente la composición nutricional estimada de la mezcla final
+
+La simulación debe calcular una predicción a partir de la composición de los lotes seleccionados.
+Por ejemplo:
+si se mezclan 3000 kg de maíz con 2000 kg de soja, la app debe calcular proteína estimada, humedad estimada, etc. como media ponderada según kilos y composición del lote.
+
+Debe mostrar:
+- tabla de ingredientes
+- kilos por ingrediente
+- porcentaje sobre total
+- composición esperada
+- resultado nutricional predicho
+- advertencias si no se cumplen objetivos
+
+Debe permitir fijar objetivos de receta, por ejemplo:
+- proteína mínima
+- humedad máxima
+- grasa objetivo
+
+La interfaz debe indicar visualmente:
+- cumple
+- cerca del límite
+- no cumple
+
+5. Módulo de producción física registrada
+Como la web no controla el SCADA, debe existir un paso donde el usuario indique que la mezcla ha sido fabricada físicamente.
+Debe poder:
+- marcar una simulación como “fabricada”
+- registrar fecha/hora real
+- registrar observaciones
+- registrar lote de producto terminado generado
+
+6. Módulo de verificación del producto final
+Tras fabricar, el usuario debe poder registrar una nueva analítica NIR del pienso terminado.
+La aplicación debe:
+- asociar la analítica al lote de producto terminado
+- comparar lo predicho con lo medido realmente
+- mostrar desviaciones absolutas y porcentuales
+- guardar histórico de comparaciones
+
+Debe mostrarse algo como:
+- proteína predicha
+- proteína real
+- desviación
+
+7. Módulo de recomendaciones
+A partir de la comparación entre predicción y realidad, la app debe generar recomendaciones simples y útiles.
+No hace falta IA compleja al principio.
+Implementa primero una lógica basada en reglas y deja preparada la estructura para evolucionar más adelante.
+
+Ejemplos:
+- “La proteína real quedó por debajo de la predicción”
+- “Revisar calidad del lote de soja”
+- “Sugerencia para próxima mezcla similar: ajustar porcentaje de soja”
+- “El lote de maíz presenta humedad alta”
+
+Haz que el motor de recomendaciones sea modular.
+
+8. Módulo de trazabilidad
+Debe permitir recorrer la historia completa de un lote:
+- entrada de materia prima
+- proveedor
+- analítica NIR de entrada
+- uso en simulaciones
+- mezcla fabricada
+- lote de producto final
+- analítica final
+- sensores ambientales relacionados por fechas y zona
+- incidencias o alertas asociadas
+
+Debe haber una vista cronológica clara y también una vista de detalle por lote.
+
+9. Módulo de alertas
+Debe generar alertas por:
+- polvo por encima de umbral
+- humedad relativa por encima de umbral
+- temperatura fuera de rango
+- sensor sin datos
+- desviación grande entre predicción y realidad
+- lote fuera de especificación
+
+Crea:
+- listado de alertas
+- alertas activas y resueltas
+- severidad: info / warning / crítica
+- filtros por zona, fecha y tipo
+- opción de marcar resuelta
+
+10. Módulo de administración básica
+Sin roles, pero sí configuración básica:
+- gestionar materias primas
+- gestionar proveedores
+- gestionar zonas
+- gestionar sensores
+- configurar umbrales de alerta
+- configurar parámetros nutricionales visibles
+
+MODELO DE DATOS SUGERIDO
+Diseña bien la base de datos. Como mínimo incluye entidades similares a estas:
+- User
+- Supplier
+- RawMaterial
+- RawMaterialLot
+- NirAnalysis
+- Sensor
+- SensorReading
+- Zone
+- Recipe
+- RecipeTarget
+- MixSimulation
+- MixSimulationItem
+- ProductionBatch
+- FinalProductAnalysis
+- Recommendation
+- Alert
+- TraceEvent
+- AuditLog
+
+Puedes ajustar nombres si lo ves más claro, pero conserva esta lógica de dominio.
+
+LÓGICA DE NEGOCIO IMPORTANTE
+
+Cálculo de mezcla
+Implementa cálculo ponderado por kilos para estimar:
+- proteína
+- humedad
+- grasa
+- almidón
+- fibra
+- cenizas
+
+Si falta dato en algún lote:
+- mostrar aviso
+- permitir continuar con estimación parcial o bloquear según configuración
+
+Aprendizaje del sistema
+No hace falta entrenar un modelo complejo real.
+Quiero:
+- una primera versión con lógica determinista + recomendaciones por reglas
+- estructura preparada para una futura capa de machine learning
+- una tabla donde se guarden comparaciones predicción vs realidad para usar luego como dataset
+
+Sensores
+No dependas de hardware real en la primera versión.
+Pero no inventes lecturas automáticas falsas.
+La app debe permitir:
+- crear sensores
+- registrar lecturas manualmente
+- recibir lecturas por API
+- visualizar solo los datos realmente existentes en la base de datos
+
+DATOS Y ARRANQUE
+MUY IMPORTANTE:
+- No generes seed con datos falsos, inventados o de ejemplo.
+- No rellenes tablas automáticamente con lotes, proveedores, sensores o simulaciones ficticias.
+- La base de datos debe arrancar vacía, salvo lo estrictamente necesario para el funcionamiento técnico.
+- Solo se permitirá que existan usuarios reales creados desde el registro.
+- La interfaz debe funcionar perfectamente aunque no haya datos todavía.
+- Muestra estados vacíos elegantes y útiles en todos los módulos.
+
+PÁGINAS Y NAVEGACIÓN
+Construye al menos estas páginas:
+- Login / Registro
+- Dashboard
+- Recepción / lotes de entrada
+- Detalle de lote
+- Sensores / monitorización
+- Simulaciones
+- Nueva simulación
+- Detalle de simulación
+- Producción física
+- Verificación final
+- Trazabilidad
+- Alertas
+- Configuración básica
+
+COMPONENTES REUTILIZABLES
+Crea componentes limpios y reutilizables:
+- sidebar
+- topbar
+- tarjetas KPI
+- tablas con filtros
+- formularios validados
+- badges de estado
+- timeline de trazabilidad
+- gráficos de series temporales
+- panel de alertas
+- comparador predicción vs realidad
+- vistas vacías elegantes
+
+CALIDAD DEL CÓDIGO
+- Usa TypeScript correctamente
+- Código modular y limpio
+- Separación clara entre frontend, backend, dominio y acceso a datos
+- Validaciones robustas
+- No generes código espagueti
+- Usa nombres consistentes
+- Crea estructura mantenible
+
+SEGURIDAD Y ROBUSTEZ
+- validación server-side
+- contraseñas con hash seguro
+- rutas protegidas
+- manejo correcto de errores
+- no hardcodear datos sensibles
+- archivo .env.example
+- migraciones de base de datos
+- instrucciones claras de arranque
+
+ENTREGABLES QUE QUIERO
+1. Aplicación funcional completa
+2. Base de datos funcional
+3. Registro y login operativos
+4. Sin datos demo falsos
+5. README claro
+6. Arquitectura explicada
+7. API básica documentada
+8. Código listo para seguir ampliando
+
+IMPORTANTE
+- No hagas una landing page.
+- Quiero una aplicación de trabajo real.
+- El enfoque es industrial, sobrio y práctico.
+- No controlar máquinas reales.
+- No integrar todavía con SCADA.
+- Sí permitir carga manual de datos y recepción por API.
+- Sí dejar preparada la arquitectura para futura integración con IoT real y machine learning.
+- Toda la app debe estar en español.
+- La app debe mostrar únicamente datos reales almacenados en la base de datos.
+- Si no hay datos, no inventar nada: mostrar estado vacío.
+
+EMPIEZA AHORA
+1. Diseña la arquitectura
+2. Crea el esquema de base de datos
+3. Implementa login y registro como primer flujo
+4. Protege rutas internas
+5. Implementa los módulos principales
+6. Haz que la app arranque correctamente con BD vacía
+7. Explica al final lo construido y lo preparado para siguientes iteraciones
