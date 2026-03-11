@@ -78,14 +78,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/raw-materials", requireAuth, async (req, res, next) => {
     try {
-      const data = insertRawMaterialSchema.parse(req.body);
+      // Clonamos el cuerpo de la petición
+      const body = { ...req.body };
+      // Si el código está vacío, lo transformamos en null para evitar el error unique
+      if (!body.code) body.code = null; 
+
+      const data = insertRawMaterialSchema.parse(body);
       res.status(201).json(await storage.createRawMaterial(data));
     } catch (err) { next(err); }
   });
 
   app.patch("/api/raw-materials/:id", requireAuth, async (req, res, next) => {
     try {
-      res.json(await storage.updateRawMaterial(Number(req.params.id), req.body));
+      const body = { ...req.body };
+      if (body.code === "") body.code = null;
+
+      res.json(await storage.updateRawMaterial(Number(req.params.id), body));
     } catch (err) { next(err); }
   });
 
@@ -104,14 +112,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/zones", requireAuth, async (req, res, next) => {
     try {
-      const data = insertZoneSchema.parse(req.body);
+      const body = { ...req.body };
+      if (!body.code) body.code = null;
+
+      const data = insertZoneSchema.parse(body);
       res.status(201).json(await storage.createZone(data));
     } catch (err) { next(err); }
   });
 
   app.patch("/api/zones/:id", requireAuth, async (req, res, next) => {
     try {
-      res.json(await storage.updateZone(Number(req.params.id), req.body));
+      const body = { ...req.body };
+      if (body.code === "") body.code = null;
+
+      res.json(await storage.updateZone(Number(req.params.id), body));
     } catch (err) { next(err); }
   });
 
