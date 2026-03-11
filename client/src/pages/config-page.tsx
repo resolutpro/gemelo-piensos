@@ -256,56 +256,58 @@ export default function ConfigPage() {
       </Dialog>
 
       <Dialog open={materialOpen} onOpenChange={setMaterialOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader><DialogTitle>Nueva Materia Prima</DialogTitle></DialogHeader>
-          <form onSubmit={materialForm.handleSubmit((d) => createMaterial.mutate(d))} className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Nombre *</Label>
-                <Input {...materialForm.register("name")} placeholder="Maíz Grano" data-testid="input-material-name" />
-                {materialForm.formState.errors.name && <p className="text-xs text-destructive">{materialForm.formState.errors.name.message}</p>}
+          <form onSubmit={materialForm.handleSubmit((d) => createMaterial.mutate(d))} className="flex flex-col h-full">
+            <div className="overflow-y-auto flex-1 space-y-4 pt-2 pr-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Nombre *</Label>
+                  <Input {...materialForm.register("name")} placeholder="Maíz Grano" data-testid="input-material-name" />
+                  {materialForm.formState.errors.name && <p className="text-xs text-destructive">{materialForm.formState.errors.name.message}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Código *</Label>
+                  <Input {...materialForm.register("code")} placeholder="MAZ-001" data-testid="input-material-code" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Categoría</Label>
+                  <Select onValueChange={(v) => materialForm.setValue("category", v as any)}>
+                    <SelectTrigger data-testid="select-material-category"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Unidad</Label>
+                  <Input {...materialForm.register("unit")} placeholder="kg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Humedad máx. (%)</Label>
+                  <Input type="number" step="0.1" {...materialForm.register("targetMoistureMax")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Proteína mín. (%)</Label>
+                  <Input type="number" step="0.1" {...materialForm.register("targetProteinMin")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Grasa máx. (%)</Label>
+                  <Input type="number" step="0.1" {...materialForm.register("targetFatMax")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Fibra máx. (%)</Label>
+                  <Input type="number" step="0.1" {...materialForm.register("targetFiberMax")} />
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Código *</Label>
-                <Input {...materialForm.register("code")} placeholder="MAZ-001" data-testid="input-material-code" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Categoría</Label>
-                <Select onValueChange={(v) => materialForm.setValue("category", v as any)}>
-                  <SelectTrigger data-testid="select-material-category"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Unidad</Label>
-                <Input {...materialForm.register("unit")} placeholder="kg" />
+                <Label>Notas</Label>
+                <Textarea {...materialForm.register("notes")} rows={2} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Humedad máx. (%)</Label>
-                <Input type="number" step="0.1" {...materialForm.register("targetMoistureMax")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Proteína mín. (%)</Label>
-                <Input type="number" step="0.1" {...materialForm.register("targetProteinMin")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Grasa máx. (%)</Label>
-                <Input type="number" step="0.1" {...materialForm.register("targetFatMax")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Fibra máx. (%)</Label>
-                <Input type="number" step="0.1" {...materialForm.register("targetFiberMax")} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notas</Label>
-              <Textarea {...materialForm.register("notes")} rows={2} />
-            </div>
-            <div className="flex gap-3 justify-end pt-2 border-t border-border">
+            <div className="flex gap-3 justify-end pt-2 border-t border-border mt-4">
               <Button type="button" variant="outline" onClick={() => setMaterialOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={createMaterial.isPending} data-testid="button-submit-material">
                 {createMaterial.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Guardar
@@ -316,38 +318,40 @@ export default function ConfigPage() {
       </Dialog>
 
       <Dialog open={supplierOpen} onOpenChange={setSupplierOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
           <DialogHeader><DialogTitle>Nuevo Proveedor</DialogTitle></DialogHeader>
-          <form onSubmit={supplierForm.handleSubmit((d) => createSupplier.mutate(d))} className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Nombre *</Label>
-                <Input {...supplierForm.register("name")} placeholder="Agricola SL" data-testid="input-supplier-name" />
-                {supplierForm.formState.errors.name && <p className="text-xs text-destructive">{supplierForm.formState.errors.name.message}</p>}
+          <form onSubmit={supplierForm.handleSubmit((d) => createSupplier.mutate(d))} className="flex flex-col h-full">
+            <div className="overflow-y-auto flex-1 space-y-4 pt-2 pr-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Nombre *</Label>
+                  <Input {...supplierForm.register("name")} placeholder="Agricola SL" data-testid="input-supplier-name" />
+                  {supplierForm.formState.errors.name && <p className="text-xs text-destructive">{supplierForm.formState.errors.name.message}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Código</Label>
+                  <Input {...supplierForm.register("code")} placeholder="PROV-001" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>País</Label>
+                  <Input {...supplierForm.register("country")} placeholder="España" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Teléfono</Label>
+                  <Input {...supplierForm.register("contactPhone")} />
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Código</Label>
-                <Input {...supplierForm.register("code")} placeholder="PROV-001" />
+                <Label>Email de Contacto</Label>
+                <Input type="email" {...supplierForm.register("contactEmail")} />
+                {supplierForm.formState.errors.contactEmail && <p className="text-xs text-destructive">{supplierForm.formState.errors.contactEmail.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>País</Label>
-                <Input {...supplierForm.register("country")} placeholder="España" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Teléfono</Label>
-                <Input {...supplierForm.register("contactPhone")} />
+                <Label>Notas</Label>
+                <Textarea {...supplierForm.register("notes")} rows={2} />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Email de Contacto</Label>
-              <Input type="email" {...supplierForm.register("contactEmail")} />
-              {supplierForm.formState.errors.contactEmail && <p className="text-xs text-destructive">{supplierForm.formState.errors.contactEmail.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notas</Label>
-              <Textarea {...supplierForm.register("notes")} rows={2} />
-            </div>
-            <div className="flex gap-3 justify-end pt-2 border-t border-border">
+            <div className="flex gap-3 justify-end pt-2 border-t border-border mt-4">
               <Button type="button" variant="outline" onClick={() => setSupplierOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={createSupplier.isPending} data-testid="button-submit-supplier">
                 {createSupplier.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Guardar
