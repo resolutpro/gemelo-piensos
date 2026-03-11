@@ -3,18 +3,17 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Link } from "wouter";
 import {
   Plus,
   Package,
   Search,
   Eye,
+  Pencil,
+  Trash2,
   Loader2,
-  FlaskConical,
-  Calendar,
-  Truck,
-  User,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -34,15 +33,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type {
-  RawMaterialLot,
-  RawMaterial,
-  Supplier,
-  NirAnalysis,
-} from "@shared/schema";
+import type { RawMaterialLot, RawMaterial, Supplier } from "@shared/schema";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -102,8 +95,8 @@ export default function ReceptionPage() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  // Estado para controlar qué lote se está viendo en el modal de detalles
-  const [viewLotId, setViewLotId] = useState<number | null>(null);
+  // Estado para saber qué lote estamos editando
+  const [editingLot, setEditingLot] = useState<RawMaterialLot | null>(null);
 
   const { data: lots = [], isLoading: lotsLoading } = useQuery<
     (RawMaterialLot & { rawMaterial?: RawMaterial; supplier?: Supplier })[]
@@ -118,19 +111,6 @@ export default function ReceptionPage() {
     queryKey: ["/api/suppliers"],
   });
 
-  // Consultar los análisis NIR solo del lote que se abre en el modal
-  const { data: lotAnalyses = [], isLoading: analysesLoading } = useQuery<
-    NirAnalysis[]
-  >({
-    queryKey: ["/api/nir-analyses/lot", viewLotId],
-    queryFn: async () => {
-      if (!viewLotId) return [];
-      const res = await fetch(`/api/nir-analyses/lot/${viewLotId}`);
-      return res.json();
-    },
-    enabled: !!viewLotId, // Solo se ejecuta si hay un lote seleccionado
-  });
-
   const form = useForm<LotFormData>({
     resolver: zodResolver(lotFormSchema),
     defaultValues: {
@@ -140,6 +120,7 @@ export default function ReceptionPage() {
     },
   });
 
+  // Mutación para Crear
   const createLotMutation = useMutation({
     mutationFn: async (data: LotFormData) => {
       const lotRes = await apiRequest("POST", "/api/lots", {
@@ -180,14 +161,60 @@ export default function ReceptionPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/nir-analyses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({ title: "Lote registrado correctamente" });
-      setOpen(false);
-      form.reset();
+      handleCloseDialog();
     },
     onError: (err: any) => {
       toast({
         title: "Error al registrar lote",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutación para Editar
+  const updateLotMutation = useMutation({
+    mutationFn: async (data: LotFormData & { id: number }) => {
+      const lotRes = await apiRequest("PATCH", `/api/lots/${data.id}`, {
+        lotCode: data.lotCode,
+        rawMaterialId: data.rawMaterialId,
+        supplierId: data.supplierId || null,
+        quantity: data.quantity,
+        receivedAt: data.receivedAt,
+        destinationBin: data.destinationBin,
+        truckPlate: data.truckPlate,
+        driverName: data.driverName,
+        observations: data.observations,
+      });
+      return await lotRes.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lots"] });
+      toast({ title: "Lote actualizado correctamente" });
+      handleCloseDialog();
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error al actualizar lote",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutación para Eliminar
+  const deleteLotMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/lots/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lots"] });
+      toast({ title: "Lote eliminado correctamente" });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error al eliminar",
         description: err.message,
         variant: "destructive",
       });
@@ -204,7 +231,64 @@ export default function ReceptionPage() {
       (lot.supplier?.name ?? "").toLowerCase().includes(search.toLowerCase()),
   );
 
-  const selectedLot = viewLotId ? lots.find((l) => l.id === viewLotId) : null;
+  // Abrir diálogo en modo Creación
+  const handleOpenNew = () => {
+    setEditingLot(null);
+    form.reset({
+      lotCode: `LOT-${format(new Date(), "yy")}${String(Math.floor(Math.random() * 9000) + 1000)}`,
+      receivedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      quantity: "",
+      rawMaterialId: "",
+      supplierId: "",
+      destinationBin: "",
+      truckPlate: "",
+      driverName: "",
+      observations: "",
+    });
+    setOpen(true);
+  };
+
+  // Abrir diálogo en modo Edición
+  const handleEdit = (lot: any) => {
+    setEditingLot(lot);
+    form.reset({
+      lotCode: lot.lotCode,
+      rawMaterialId: String(lot.rawMaterialId),
+      supplierId: lot.supplierId ? String(lot.supplierId) : undefined,
+      quantity: String(lot.quantity),
+      receivedAt: format(new Date(lot.receivedAt), "yyyy-MM-dd'T'HH:mm"),
+      destinationBin: lot.destinationBin || "",
+      truckPlate: lot.truckPlate || "",
+      driverName: lot.driverName || "",
+      observations: lot.observations || "",
+    });
+    setOpen(true);
+  };
+
+  // Confirmar y eliminar
+  const handleDelete = (id: number) => {
+    if (
+      window.confirm(
+        "¿Estás seguro de que deseas eliminar este lote? Esta acción no se puede deshacer.",
+      )
+    ) {
+      deleteLotMutation.mutate(id);
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setOpen(false);
+    setEditingLot(null);
+    form.reset();
+  };
+
+  const onSubmit = (data: LotFormData) => {
+    if (editingLot) {
+      updateLotMutation.mutate({ ...data, id: editingLot.id });
+    } else {
+      createLotMutation.mutate(data);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -215,7 +299,7 @@ export default function ReceptionPage() {
             Registro y control de lotes de entrada y análisis NIR
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} data-testid="button-new-lot">
+        <Button onClick={handleOpenNew} data-testid="button-new-lot">
           <Plus className="w-4 h-4 mr-2" /> Nueva Recepción
         </Button>
       </div>
@@ -275,7 +359,7 @@ export default function ReceptionPage() {
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="py-3 px-4" />
+                    <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -318,15 +402,35 @@ export default function ReceptionPage() {
                         </Badge>
                       </td>
                       <td className="py-3 px-4">
-                        {/* Se eliminó el <Link> y se cambió por un onClick para abrir el modal */}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setViewLotId(lot.id)}
-                          data-testid={`button-view-lot-${lot.id}`}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/recepcion/${lot.id}`}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Ver"
+                              data-testid={`button-view-lot-${lot.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Editar"
+                            onClick={() => handleEdit(lot)}
+                          >
+                            <Pencil className="w-4 h-4 text-blue-500" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Eliminar"
+                            onClick={() => handleDelete(lot.id)}
+                            disabled={deleteLotMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -337,18 +441,17 @@ export default function ReceptionPage() {
         </CardContent>
       </Card>
 
-      {/* New Lot Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* New / Edit Lot Dialog */}
+      <Dialog open={open} onOpenChange={(val) => !val && handleCloseDialog()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {/* Formulario previo (se mantiene intacto) */}
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="w-5 h-5 text-primary" />
-              Nueva Recepción
+              {editingLot ? "Editar Recepción" : "Nueva Recepción"}
             </DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={form.handleSubmit((d) => createLotMutation.mutate(d))}
+            onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-6 pt-2"
           >
             <div>
@@ -385,6 +488,7 @@ export default function ReceptionPage() {
                 <div className="space-y-1.5">
                   <Label>Materia Prima</Label>
                   <Select
+                    value={form.watch("rawMaterialId")}
                     onValueChange={(v) => form.setValue("rawMaterialId", v)}
                   >
                     <SelectTrigger data-testid="select-raw-material">
@@ -412,7 +516,10 @@ export default function ReceptionPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Proveedor</Label>
-                  <Select onValueChange={(v) => form.setValue("supplierId", v)}>
+                  <Select
+                    value={form.watch("supplierId") || undefined}
+                    onValueChange={(v) => form.setValue("supplierId", v)}
+                  >
                     <SelectTrigger data-testid="select-supplier">
                       <SelectValue placeholder="Seleccione..." />
                     </SelectTrigger>
@@ -450,32 +557,38 @@ export default function ReceptionPage() {
               </div>
             </div>
 
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
-                Análisis NIR
-              </p>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { key: "moisture", label: "Humedad (%)" },
-                  { key: "protein", label: "Proteína (%)" },
-                  { key: "fat", label: "Grasa (%)" },
-                  { key: "starch", label: "Almidón (%)" },
-                  { key: "fiber", label: "Fibra (%)" },
-                  { key: "ash", label: "Cenizas (%)" },
-                ].map(({ key, label }) => (
-                  <div key={key} className="space-y-1.5">
-                    <Label className="text-xs">{label}</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...form.register(key as any)}
-                      data-testid={`input-nir-${key}`}
-                    />
-                  </div>
-                ))}
+            {!editingLot && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                  Análisis NIR
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Opcional: registre los valores del analizador NIR si están
+                  disponibles (Solo en creación)
+                </p>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { key: "moisture", label: "Humedad (%)" },
+                    { key: "protein", label: "Proteína (%)" },
+                    { key: "fat", label: "Grasa (%)" },
+                    { key: "starch", label: "Almidón (%)" },
+                    { key: "fiber", label: "Fibra (%)" },
+                    { key: "ash", label: "Cenizas (%)" },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label className="text-xs">{label}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...form.register(key as any)}
+                        data-testid={`input-nir-${key}`}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
@@ -512,180 +625,30 @@ export default function ReceptionPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={handleCloseDialog}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                disabled={createLotMutation.isPending}
+                disabled={
+                  createLotMutation.isPending || updateLotMutation.isPending
+                }
                 data-testid="button-submit-lot"
               >
-                {createLotMutation.isPending ? (
+                {createLotMutation.isPending || updateLotMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />{" "}
-                    Registrando...
+                    Guardando...
                   </>
+                ) : editingLot ? (
+                  "Guardar Cambios"
                 ) : (
                   "Registrar Entrada"
                 )}
               </Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Lot Details Modal */}
-      <Dialog
-        open={!!viewLotId}
-        onOpenChange={(isOpen) => !isOpen && setViewLotId(null)}
-      >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Package className="w-5 h-5 text-primary" />
-              Detalles del Lote: {selectedLot?.lotCode}
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedLot && (
-            <div className="space-y-6 pt-2">
-              <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
-                <div>
-                  <p className="text-muted-foreground text-xs">Materia Prima</p>
-                  <p className="font-medium">
-                    {selectedLot.rawMaterial?.name ?? "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Proveedor</p>
-                  <p className="font-medium">
-                    {selectedLot.supplier?.name ?? "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Cantidad</p>
-                  <p className="font-mono font-medium">
-                    {selectedLot.quantity.toLocaleString()} {selectedLot.unit}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Tolva Destino</p>
-                  <p className="font-medium">
-                    {selectedLot.destinationBin ?? "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> Fecha Recepción
-                  </p>
-                  <p className="font-medium">
-                    {format(
-                      new Date(selectedLot.receivedAt),
-                      "dd/MM/yyyy HH:mm",
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Estado</p>
-                  <Badge
-                    variant={
-                      (STATUS_VARIANTS[selectedLot.status] as any) ??
-                      "secondary"
-                    }
-                  >
-                    {STATUS_LABELS[selectedLot.status] ?? selectedLot.status}
-                  </Badge>
-                </div>
-                {selectedLot.truckPlate && (
-                  <div>
-                    <p className="text-muted-foreground text-xs flex items-center gap-1">
-                      <Truck className="w-3 h-3" /> Matrícula
-                    </p>
-                    <p className="font-mono">{selectedLot.truckPlate}</p>
-                  </div>
-                )}
-                {selectedLot.driverName && (
-                  <div>
-                    <p className="text-muted-foreground text-xs flex items-center gap-1">
-                      <User className="w-3 h-3" /> Conductor
-                    </p>
-                    <p>{selectedLot.driverName}</p>
-                  </div>
-                )}
-              </div>
-
-              {selectedLot.observations && (
-                <>
-                  <Separator />
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">
-                      Observaciones
-                    </p>
-                    <p className="text-sm">{selectedLot.observations}</p>
-                  </div>
-                </>
-              )}
-
-              <Separator />
-
-              <div>
-                <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-                  <FlaskConical className="w-4 h-4 text-primary" />
-                  Análisis Nutricional (NIR)
-                </h3>
-                {analysesLoading ? (
-                  <Skeleton className="h-24 w-full" />
-                ) : lotAnalyses.length === 0 ? (
-                  <p className="text-sm text-muted-foreground bg-muted/30 p-4 rounded-lg text-center">
-                    No hay datos nutricionales registrados para este lote.
-                  </p>
-                ) : (
-                  lotAnalyses.map((analysis, index) => {
-                    const params = [
-                      { label: "Humedad", value: analysis.moisture, unit: "%" },
-                      { label: "Proteína", value: analysis.protein, unit: "%" },
-                      { label: "Grasa", value: analysis.fat, unit: "%" },
-                      { label: "Almidón", value: analysis.starch, unit: "%" },
-                      { label: "Fibra", value: analysis.fiber, unit: "%" },
-                      { label: "Cenizas", value: analysis.ash, unit: "%" },
-                    ].filter((p) => p.value !== null && p.value !== undefined);
-
-                    return (
-                      <div key={analysis.id} className="mb-4">
-                        {index > 0 && <Separator className="my-4" />}
-                        <p className="text-xs text-muted-foreground mb-3 font-medium">
-                          Muestra del{" "}
-                          {format(
-                            new Date(analysis.analyzedAt),
-                            "dd/MM/yyyy HH:mm",
-                          )}
-                        </p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {params.map((p) => (
-                            <div
-                              key={p.label}
-                              className="p-3 rounded-md bg-muted/50 border border-border text-center"
-                            >
-                              <p className="text-xs text-muted-foreground">
-                                {p.label}
-                              </p>
-                              <p className="text-lg font-bold">
-                                {p.value?.toFixed(2)}
-                                <span className="text-xs font-normal text-muted-foreground ml-1">
-                                  {p.unit}
-                                </span>
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>

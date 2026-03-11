@@ -62,6 +62,7 @@ export interface IStorage {
   getLot(id: number): Promise<(RawMaterialLot & { rawMaterial?: RawMaterial; supplier?: Supplier }) | undefined>;
   createLot(data: InsertRawMaterialLot): Promise<RawMaterialLot>;
   updateLot(id: number, data: Partial<InsertRawMaterialLot>): Promise<RawMaterialLot>;
+  deleteLot(id: number): Promise<void>;
 
   // NIR Analyses
   getNirAnalyses(): Promise<NirAnalysis[]>;
@@ -256,6 +257,16 @@ export class DatabaseStorage implements IStorage {
     const [lot] = await db.update(rawMaterialLots).set(data).where(eq(rawMaterialLots.id, id)).returning();
     return lot;
   }
+
+  async deleteLot(id: number): Promise<void> {
+    // 1. Primero eliminamos las dependencias (Análisis NIR y Eventos de Trazabilidad)
+    await db.delete(nirAnalyses).where(eq(nirAnalyses.lotId, id));
+    await db.delete(traceEvents).where(eq(traceEvents.lotId, id));
+
+    // 2. Finalmente eliminamos el lote
+    await db.delete(rawMaterialLots).where(eq(rawMaterialLots.id, id));
+  }
+  
 
   async getNirAnalyses(): Promise<NirAnalysis[]> {
     return db.select().from(nirAnalyses).orderBy(desc(nirAnalyses.analyzedAt));

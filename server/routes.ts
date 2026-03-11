@@ -256,6 +256,22 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/lots/:id", requireAuth, async (req, res, next) => {
+    try {
+      await storage.deleteLot(Number(req.params.id));
+      res.sendStatus(204);
+    } catch (err: any) {
+      // Si ocurre un error de restricción de base de datos (Ej: el lote se usa en una receta/simulación)
+      if (err.code === "23503") {
+        return res.status(400).json({
+          message:
+            "No se puede eliminar el lote porque está siendo utilizado en una simulación o lote de producción.",
+        });
+      }
+      next(err);
+    }
+  });
+
   // ─── NIR Analyses ───────────────────────────────────────────────────────────
 
   app.get("/api/nir-analyses", requireAuth, async (req, res, next) => {
