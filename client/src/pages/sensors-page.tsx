@@ -11,6 +11,7 @@ import {
   Loader2,
   Activity,
   Settings,
+  Edit,
 } from "lucide-react";
 import {
   Card,
@@ -57,7 +58,7 @@ import {
 
 const sensorSchema = z.object({
   name: z.string().min(2),
-  code: z.string().min(2),
+  code: z.string().optional(),
   type: z.enum(["dust", "temperature", "humidity", "co2", "other"]),
   zoneId: z.string().min(1),
   unit: z.string().min(1),
@@ -111,10 +112,12 @@ function SensorCard({
   sensor,
   onAddReading,
   onConfigureMqtt,
+  onEdit,
 }: {
   sensor: Sensor & { zone?: Zone };
   onAddReading: (s: Sensor) => void;
   onConfigureMqtt: (s: Sensor) => void;
+  onEdit: (s: Sensor) => void;
 }) {
   const statusCfg = STATUS_CONFIG[sensor.status] ?? STATUS_CONFIG.offline;
   const isAboveMax =
@@ -144,20 +147,28 @@ function SensorCard({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Badge
               variant={hasAlert ? "destructive" : "secondary"}
-              className="text-xs"
+              className="text-xs mr-1"
             >
               {TYPE_LABELS[sensor.type] ?? sensor.type}
             </Badge>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-muted-foreground"
+              className="h-7 w-7 text-muted-foreground"
               onClick={() => onConfigureMqtt(sensor)}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground"
+              onClick={() => onEdit(sensor)}
+            >
+              <Edit className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
@@ -232,6 +243,7 @@ export default function SensorsPage() {
   const [mqttOpen, setMqttOpen] = useState(false);
   const [selectedSensor, setSelectedSensor] = useState<Sensor | null>(null);
   const [selectedZone, setSelectedZone] = useState<string>("all");
+  const [editingSensor, setEditingSensor] = useState<Sensor | null>(null);
 
   const { data: sensors = [], isLoading } = useQuery<
     (Sensor & { zone?: Zone })[]
@@ -253,13 +265,44 @@ export default function SensorsPage() {
 
   const createSensorMutation = useMutation({
     mutationFn: async (data: SensorFormData) => {
-      const res = await apiRequest("POST", "/api/sensors", data);
+      // Si el código está vacío, generamos uno automáticamente
+      const payload = {
+        ...data,
+        code: data.code || `SEN-${Math.floor(Math.random() * 10000)}`,
+      };
+      const res = await apiRequest("POST", "/api/sensors", payload);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sensors"] });
       toast({ title: "Sensor registrado" });
       setSensorOpen(false);
+      sensorForm.reset();
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const updateSensorMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Partial<SensorFormData>;
+    }) => {
+      const res = await apiRequest("PATCH", `/api/sensors/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sensors"] });
+      toast({ title: "Sensor actualizado" });
+      setSensorOpen(false);
+      setEditingSensor(null);
       sensorForm.reset();
     },
     onError: (err: any) =>
@@ -332,6 +375,32 @@ export default function SensorsPage() {
       }),
   });
 
+  // Función para abrir el modal en modo edición
+  const handleEditSensor = (sensor: Sensor) => {
+    setEditingSensor(sensor);
+    sensorForm.reset({
+      name: sensor.name,
+      code: sensor.code,
+      type: sensor.type as any,
+      zoneId: String(sensor.zoneId),
+      unit: sensor.unit,
+      alertThresholdMin: sensor.alertThresholdMin?.toString() ?? "",
+      alertThresholdMax: sensor.alertThresholdMax?.toString() ?? "",
+      warningThresholdMin: sensor.warningThresholdMin?.toString() ?? "",
+      warningThresholdMax: sensor.warningThresholdMax?.toString() ?? "",
+    });
+    setSensorOpen(true);
+  };
+
+  // Controlador unificado para el envío del formulario
+  const onSubmitSensor = (data: SensorFormData) => {
+    if (editingSensor) {
+      updateSensorMutation.mutate({ id: editingSensor.id, data });
+    } else {
+      createSensorMutation.mutate(data);
+    }
+  };
+
   const handleAddReading = (sensor: Sensor) => {
     setSelectedSensor(sensor);
     setReadingOpen(true);
@@ -368,7 +437,11 @@ export default function SensorsPage() {
           </p>
         </div>
         <Button
-          onClick={() => setSensorOpen(true)}
+          onClick={() => {
+            setEditingSensor(null);
+            sensorForm.reset({ unit: "", code: "" });
+            setSensorOpen(true);
+          }}
           data-testid="button-new-sensor"
         >
           <Plus className="w-4 h-4 mr-2" /> Añadir Sensor
@@ -479,23 +552,23 @@ export default function SensorsPage() {
               sensor={sensor}
               onAddReading={handleAddReading}
               onConfigureMqtt={handleConfigureMqtt}
+              onEdit={handleEditSensor}
             />
           ))}
         </div>
       )}
 
-      {/* New Sensor Dialog */}
+      {/* New / Edit Sensor Dialog */}
       <Dialog open={sensorOpen} onOpenChange={setSensorOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Wifi className="w-5 h-5 text-primary" /> Nuevo Sensor
+              <Wifi className="w-5 h-5 text-primary" />
+              {editingSensor ? "Editar Sensor" : "Nuevo Sensor"}
             </DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={sensorForm.handleSubmit((d) =>
-              createSensorMutation.mutate(d),
-            )}
+            onSubmit={sensorForm.handleSubmit(onSubmitSensor)}
             className="space-y-4 pt-2"
           >
             <div className="grid grid-cols-2 gap-4">
@@ -508,16 +581,20 @@ export default function SensorsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Código</Label>
+                <Label>Código {editingSensor ? "" : "(Opcional)"}</Label>
                 <Input
                   {...sensorForm.register("code")}
-                  placeholder="SL-P01"
+                  placeholder={
+                    editingSensor ? "" : "Auto-generado si está vacío"
+                  }
+                  disabled={!!editingSensor}
                   data-testid="input-sensor-code"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Tipo</Label>
                 <Select
+                  value={sensorForm.watch("type")}
                   onValueChange={(v) => sensorForm.setValue("type", v as any)}
                 >
                   <SelectTrigger data-testid="select-sensor-type">
@@ -534,7 +611,10 @@ export default function SensorsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Zona</Label>
-                <Select onValueChange={(v) => sensorForm.setValue("zoneId", v)}>
+                <Select
+                  value={sensorForm.watch("zoneId")}
+                  onValueChange={(v) => sensorForm.setValue("zoneId", v)}
+                >
                   <SelectTrigger data-testid="select-sensor-zone">
                     <SelectValue placeholder="Seleccione..." />
                   </SelectTrigger>
@@ -606,13 +686,17 @@ export default function SensorsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={createSensorMutation.isPending}
+                disabled={
+                  createSensorMutation.isPending ||
+                  updateSensorMutation.isPending
+                }
                 data-testid="button-submit-sensor"
               >
-                {createSensorMutation.isPending ? (
+                {createSensorMutation.isPending ||
+                updateSensorMutation.isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : null}{" "}
-                Guardar Sensor
+                {editingSensor ? "Guardar Cambios" : "Guardar Sensor"}
               </Button>
             </div>
           </form>
