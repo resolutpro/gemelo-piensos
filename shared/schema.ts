@@ -525,3 +525,25 @@ export const traceEventsRelations = relations(traceEvents, ({ one }) => ({
     references: [productionBatches.id],
   }),
 }));
+
+// ─── Notification Contacts ────────────────────────────────────────────────────
+
+export const notificationContacts = pgTable("notification_contacts", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  email: text("email"),
+  telegramId: text("telegram_id"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNotificationContactSchema = createInsertSchema(
+  notificationContacts,
+).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNotificationContact = z.infer<
+  typeof insertNotificationContactSchema
+>;
+export type NotificationContact = typeof notificationContacts.$inferSelect;

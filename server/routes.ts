@@ -19,9 +19,11 @@ import {
   insertAlertSchema,
   rawMaterialLots,
   insertTraceEventSchema,
+  insertNotificationContactSchema,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { sendAlertNotifications } from "./notifications";
 
 function requireAuth(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -33,6 +35,35 @@ export async function registerRoutes(
   app: Express,
 ): Promise<Server> {
   setupAuth(app);
+
+  //CRUD DE CONTACTOS ---
+  app.get("/api/contacts", requireAuth, async (req, res, next) => {
+    try {
+      // Necesitas crear este método en tu storage.ts o usar db.select().from(notificationContacts)
+      const contacts = await storage.getNotificationContacts();
+      res.json(contacts);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/contacts", requireAuth, async (req, res, next) => {
+    try {
+      const data = insertNotificationContactSchema.parse(req.body);
+      res.status(201).json(await storage.createNotificationContact(data));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete("/api/contacts/:id", requireAuth, async (req, res, next) => {
+    try {
+      await storage.deleteNotificationContact(Number(req.params.id));
+      res.sendStatus(204);
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // ─── Dashboard ──────────────────────────────────────────────────────────────
 
@@ -389,7 +420,9 @@ export async function registerRoutes(
       const { mqttService } = await import("./mqtt");
       await mqttService.refreshMqttConnections();
       res.sendStatus(200);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
   app.delete("/api/sensors/:id", requireAuth, async (req, res, next) => {
     try {
@@ -422,46 +455,9 @@ export async function registerRoutes(
           : new Date(),
       };
       const data = insertSensorReadingSchema.parse(body);
-      const reading = await storage.createSensorReading(data);
 
-      const sensor = await storage.getSensor(reading.sensorId);
-      if (sensor) {
-        const exceedsMax =
-          sensor.alertThresholdMax !== null &&
-          reading.value > sensor.alertThresholdMax;
-        const belowMin =
-          sensor.alertThresholdMin !== null &&
-          reading.value < sensor.alertThresholdMin;
-        if (exceedsMax || belowMin) {
-          await storage.createAlert({
-            type: "sensor_threshold",
-            severity: "critical",
-            status: "active",
-            title: `Alerta crítica: ${sensor.name}`,
-            description: `Valor ${reading.value} ${sensor.unit} ${exceedsMax ? "supera el umbral máximo de " + sensor.alertThresholdMax : "cae bajo el umbral mínimo de " + sensor.alertThresholdMin}`,
-            sensorId: sensor.id,
-            zoneId: sensor.zoneId,
-          });
-        } else {
-          const exceedsWarningMax =
-            sensor.warningThresholdMax !== null &&
-            reading.value > sensor.warningThresholdMax;
-          const belowWarningMin =
-            sensor.warningThresholdMin !== null &&
-            reading.value < sensor.warningThresholdMin;
-          if (exceedsWarningMax || belowWarningMin) {
-            await storage.createAlert({
-              type: "sensor_threshold",
-              severity: "warning",
-              status: "active",
-              title: `Advertencia: ${sensor.name}`,
-              description: `Valor ${reading.value} ${sensor.unit} ${exceedsWarningMax ? "cerca del umbral máximo de " + sensor.warningThresholdMax : "cerca del umbral mínimo de " + sensor.warningThresholdMin}`,
-              sensorId: sensor.id,
-              zoneId: sensor.zoneId,
-            });
-          }
-        }
-      }
+      // Llamamos al storage. Ya se encarga de verificar umbrales y enviar emails/whatsapp
+      const reading = await storage.createSensorReading(data);
 
       res.status(201).json(reading);
     } catch (err) {

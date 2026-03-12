@@ -79,6 +79,13 @@ const supplierSchema = z.object({
   notes: z.string().optional(),
 });
 
+const contactSchema = z.object({
+  name: z.string().min(2, "Nombre obligatorio"),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  telegramId: z.string().optional(),
+});
+
+type ContactFormData = z.infer<typeof contactSchema>;
 type ZoneFormData = z.infer<typeof zoneSchema>;
 type MaterialFormData = z.infer<typeof materialSchema>;
 type SupplierFormData = z.infer<typeof supplierSchema>;
@@ -382,6 +389,37 @@ export default function ConfigPage() {
       }),
   });
 
+  const [contactOpen, setContactOpen] = useState(false);
+  const { data: contacts = [] } = useQuery({ queryKey: ["/api/contacts"] });
+
+  const contactForm = useForm<ContactFormData>({
+    resolver: zodResolver(contactSchema),
+    defaultValues: { name: "", email: "", phone: "" },
+  });
+
+  const createContact = useMutation({
+    mutationFn: async (data: ContactFormData) => {
+      const r = await apiRequest("POST", "/api/contacts", data);
+      return r.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      toast({ title: "Contacto añadido" });
+      setContactOpen(false);
+      contactForm.reset();
+    },
+  });
+
+  const deleteContact = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/contacts/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      toast({ title: "Contacto eliminado" });
+    },
+  });
+
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       <div>
@@ -396,6 +434,7 @@ export default function ConfigPage() {
           <TabsTrigger value="materials">Materias Primas</TabsTrigger>
           <TabsTrigger value="zones">Zonas</TabsTrigger>
           <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
+          <TabsTrigger value="contacts">Notificaciones</TabsTrigger>
         </TabsList>
 
         {/* Materials */}
@@ -527,6 +566,41 @@ export default function ConfigPage() {
                   code={s.code ?? undefined}
                   badge={s.country ?? undefined}
                   onDelete={() => deleteSupplier.mutate(s.id)}
+                />
+              ))
+            )}
+          </div>
+        </TabsContent>
+        {/* Contacts Tab */}
+        <TabsContent value="contacts" className="mt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold">Contactos de Notificación</p>
+              <p className="text-xs text-muted-foreground">
+                Correos y WhatsApp que recibirán alertas
+              </p>
+            </div>
+            <Button size="sm" onClick={() => setContactOpen(true)}>
+              <Plus className="w-4 h-4 mr-1.5" /> Añadir Contacto
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {contacts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Sin contactos. No se enviarán alertas.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              contacts.map((c: any) => (
+                <EntityCard
+                  key={c.id}
+                  name={c.name}
+                  code={c.telegramId ? `TG: ${c.telegramId}` : "Sin Telegram"}
+                  badge={c.email || "Sin email"}
+                  onDelete={() => deleteContact.mutate(c.id)}
                 />
               ))
             )}
@@ -793,6 +867,58 @@ export default function ConfigPage() {
                 {createSupplier.isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : null}{" "}
+                Guardar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Dialog */}
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo Contacto</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={contactForm.handleSubmit((d) => createContact.mutate(d))}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label>Nombre *</Label>
+              <Input
+                {...contactForm.register("name")}
+                placeholder="Juan Operario"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                {...contactForm.register("email")}
+                placeholder="juan@fabrica.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ID de Chat de Telegram</Label>
+              <Input
+                {...contactForm.register("telegramId")}
+                placeholder="Ej: 123456789"
+              />
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                El contacto debe iniciar el bot y buscar su ID numérico (ej:
+                enviando un mensaje a @userinfobot en Telegram).
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setContactOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createContact.isPending}>
                 Guardar
               </Button>
             </div>
