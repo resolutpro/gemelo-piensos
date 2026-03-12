@@ -430,7 +430,7 @@ export default function ConfigPage() {
       </div>
 
       <Tabs defaultValue="materials">
-        <TabsList className="grid grid-cols-3 w-full max-w-md">
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="materials">Materias Primas</TabsTrigger>
           <TabsTrigger value="zones">Zonas</TabsTrigger>
           <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
