@@ -3,22 +3,57 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wifi, WifiOff, AlertTriangle, Loader2, Activity } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Plus,
+  Wifi,
+  WifiOff,
+  AlertTriangle,
+  Loader2,
+  Activity,
+  Settings,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Sensor, Zone, SensorReading } from "@shared/schema";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 const sensorSchema = z.object({
   name: z.string().min(2),
@@ -37,21 +72,59 @@ const readingSchema = z.object({
   notes: z.string().optional(),
 });
 
+const mqttSchema = z.object({
+  mqttEnabled: z.boolean(),
+  mqttHost: z.string().optional(),
+  mqttPort: z.string().optional(),
+  mqttTopic: z.string().optional(),
+  mqttUsername: z.string().optional(),
+  mqttPassword: z.string().optional(),
+  jsonFields: z.string().optional(),
+});
+
 type SensorFormData = z.infer<typeof sensorSchema>;
 type ReadingFormData = z.infer<typeof readingSchema>;
+type MqttFormData = z.infer<typeof mqttSchema>;
 
-const TYPE_LABELS: Record<string, string> = { dust: "Polvo", temperature: "Temperatura", humidity: "Humedad", co2: "CO₂", other: "Otro" };
-const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
+const TYPE_LABELS: Record<string, string> = {
+  dust: "Polvo",
+  temperature: "Temperatura",
+  humidity: "Humedad",
+  co2: "CO₂",
+  other: "Otro",
+};
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; dot: string }
+> = {
   online: { label: "Online", color: "text-green-600", dot: "bg-green-500" },
-  offline: { label: "Offline", color: "text-muted-foreground", dot: "bg-muted-foreground" },
+  offline: {
+    label: "Offline",
+    color: "text-muted-foreground",
+    dot: "bg-muted-foreground",
+  },
   warning: { label: "Aviso", color: "text-yellow-600", dot: "bg-yellow-500" },
   error: { label: "Error", color: "text-destructive", dot: "bg-destructive" },
 };
 
-function SensorCard({ sensor, onAddReading }: { sensor: Sensor & { zone?: Zone }; onAddReading: (s: Sensor) => void }) {
+function SensorCard({
+  sensor,
+  onAddReading,
+  onConfigureMqtt,
+}: {
+  sensor: Sensor & { zone?: Zone };
+  onAddReading: (s: Sensor) => void;
+  onConfigureMqtt: (s: Sensor) => void;
+}) {
   const statusCfg = STATUS_CONFIG[sensor.status] ?? STATUS_CONFIG.offline;
-  const isAboveMax = sensor.alertThresholdMax !== null && sensor.lastValue !== null && (sensor.lastValue ?? 0) > (sensor.alertThresholdMax ?? Infinity);
-  const isBelowMin = sensor.alertThresholdMin !== null && sensor.lastValue !== null && (sensor.lastValue ?? 0) < (sensor.alertThresholdMin ?? -Infinity);
+  const isAboveMax =
+    sensor.alertThresholdMax !== null &&
+    sensor.lastValue !== null &&
+    (sensor.lastValue ?? 0) > (sensor.alertThresholdMax ?? Infinity);
+  const isBelowMin =
+    sensor.alertThresholdMin !== null &&
+    sensor.lastValue !== null &&
+    (sensor.lastValue ?? 0) < (sensor.alertThresholdMin ?? -Infinity);
   const hasAlert = isAboveMax || isBelowMin;
 
   return (
@@ -59,34 +132,70 @@ function SensorCard({ sensor, onAddReading }: { sensor: Sensor & { zone?: Zone }
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${statusCfg.dot}`} />
+            <div
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${statusCfg.dot}`}
+            />
             <div>
-              <p className="text-sm font-semibold text-foreground">{sensor.name}</p>
-              <p className="text-xs text-muted-foreground">{sensor.code} · {sensor.zone?.name ?? "Sin zona"}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {sensor.name}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {sensor.code} · {sensor.zone?.name ?? "Sin zona"}
+              </p>
             </div>
           </div>
-          <Badge variant={hasAlert ? "destructive" : "secondary"} className="text-xs">{TYPE_LABELS[sensor.type] ?? sensor.type}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={hasAlert ? "destructive" : "secondary"}
+              className="text-xs"
+            >
+              {TYPE_LABELS[sensor.type] ?? sensor.type}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground"
+              onClick={() => onConfigureMqtt(sensor)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-end justify-between">
           <div>
             {sensor.lastValue !== null ? (
-              <p className={`text-3xl font-bold font-mono ${hasAlert ? "text-destructive" : "text-foreground"}`}>
-                {sensor.lastValue?.toFixed(1)}<span className="text-base font-normal text-muted-foreground ml-1">{sensor.unit}</span>
+              <p
+                className={`text-3xl font-bold font-mono ${hasAlert ? "text-destructive" : "text-foreground"}`}
+              >
+                {sensor.lastValue?.toFixed(1)}
+                <span className="text-base font-normal text-muted-foreground ml-1">
+                  {sensor.unit}
+                </span>
               </p>
             ) : (
               <p className="text-lg text-muted-foreground">— {sensor.unit}</p>
             )}
             {sensor.lastReadingAt && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                {format(new Date(sensor.lastReadingAt), "d MMM HH:mm", { locale: es })}
+                {format(new Date(sensor.lastReadingAt), "d MMM HH:mm", {
+                  locale: es,
+                })}
               </p>
             )}
           </div>
           {sensor.alertThresholdMax !== null && (
             <div className="text-right text-xs text-muted-foreground">
-              <p>Max: {sensor.alertThresholdMax}{sensor.unit}</p>
-              {sensor.alertThresholdMin !== null && <p>Min: {sensor.alertThresholdMin}{sensor.unit}</p>}
+              <p>
+                Max: {sensor.alertThresholdMax}
+                {sensor.unit}
+              </p>
+              {sensor.alertThresholdMin !== null && (
+                <p>
+                  Min: {sensor.alertThresholdMin}
+                  {sensor.unit}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -94,13 +203,21 @@ function SensorCard({ sensor, onAddReading }: { sensor: Sensor & { zone?: Zone }
         {hasAlert && (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-destructive p-2 rounded-md bg-destructive/10">
             <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-            {isAboveMax ? `Valor supera umbral máximo (${sensor.alertThresholdMax}${sensor.unit})` : `Valor bajo umbral mínimo (${sensor.alertThresholdMin}${sensor.unit})`}
+            {isAboveMax
+              ? `Valor supera umbral máximo (${sensor.alertThresholdMax}${sensor.unit})`
+              : `Valor bajo umbral mínimo (${sensor.alertThresholdMin}${sensor.unit})`}
           </div>
         )}
 
-        <div className="mt-3 pt-3 border-t border-border">
-          <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => onAddReading(sensor)} data-testid={`button-add-reading-${sensor.id}`}>
-            <Activity className="w-3 h-3 mr-1.5" /> Registrar Lectura
+        <div className="mt-3 pt-3 border-t border-border flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full text-xs"
+            onClick={() => onAddReading(sensor)}
+            data-testid={`button-add-reading-${sensor.id}`}
+          >
+            <Activity className="w-3 h-3 mr-1.5" /> Registrar Manual
           </Button>
         </div>
       </CardContent>
@@ -112,14 +229,27 @@ export default function SensorsPage() {
   const { toast } = useToast();
   const [sensorOpen, setSensorOpen] = useState(false);
   const [readingOpen, setReadingOpen] = useState(false);
+  const [mqttOpen, setMqttOpen] = useState(false);
   const [selectedSensor, setSelectedSensor] = useState<Sensor | null>(null);
   const [selectedZone, setSelectedZone] = useState<string>("all");
 
-  const { data: sensors = [], isLoading } = useQuery<(Sensor & { zone?: Zone })[]>({ queryKey: ["/api/sensors"] });
+  const { data: sensors = [], isLoading } = useQuery<
+    (Sensor & { zone?: Zone })[]
+  >({ queryKey: ["/api/sensors"] });
   const { data: zones = [] } = useQuery<Zone[]>({ queryKey: ["/api/zones"] });
 
-  const sensorForm = useForm<SensorFormData>({ resolver: zodResolver(sensorSchema), defaultValues: { unit: "", code: "" } });
-  const readingForm = useForm<ReadingFormData>({ resolver: zodResolver(readingSchema), defaultValues: { value: "" } });
+  const sensorForm = useForm<SensorFormData>({
+    resolver: zodResolver(sensorSchema),
+    defaultValues: { unit: "", code: "" },
+  });
+  const readingForm = useForm<ReadingFormData>({
+    resolver: zodResolver(readingSchema),
+    defaultValues: { value: "" },
+  });
+  const mqttForm = useForm<MqttFormData>({
+    resolver: zodResolver(mqttSchema),
+    defaultValues: { mqttEnabled: false },
+  });
 
   const createSensorMutation = useMutation({
     mutationFn: async (data: SensorFormData) => {
@@ -132,18 +262,27 @@ export default function SensorsPage() {
       setSensorOpen(false);
       sensorForm.reset();
     },
-    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
   });
 
   const createReadingMutation = useMutation({
     mutationFn: async (data: ReadingFormData) => {
       if (!selectedSensor) throw new Error("No sensor selected");
-      const res = await apiRequest("POST", `/api/sensors/${selectedSensor.id}/readings`, {
-        value: data.value,
-        unit: selectedSensor.unit,
-        notes: data.notes,
-        recordedAt: new Date().toISOString(),
-      });
+      const res = await apiRequest(
+        "POST",
+        `/api/sensors/${selectedSensor.id}/readings`,
+        {
+          value: data.value,
+          unit: selectedSensor.unit,
+          notes: data.notes,
+          recordedAt: new Date().toISOString(),
+        },
+      );
       return res.json();
     },
     onSuccess: () => {
@@ -153,7 +292,44 @@ export default function SensorsPage() {
       setReadingOpen(false);
       readingForm.reset();
     },
-    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const updateMqttMutation = useMutation({
+    mutationFn: async (data: MqttFormData) => {
+      if (!selectedSensor) throw new Error("No sensor selected");
+      const payload = {
+        ...data,
+        mqttPort: data.mqttPort ? parseInt(data.mqttPort) : null,
+      };
+      const res = await apiRequest(
+        "PATCH",
+        `/api/sensors/${selectedSensor.id}`,
+        payload,
+      );
+      // Opcional: Llamar a un endpoint para refrescar MQTT en el backend
+      await apiRequest("POST", `/api/sensors/refresh-mqtt`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sensors"] });
+      toast({
+        title: "Configuración MQTT actualizada",
+        description: "El servicio MQTT se ha reiniciado para aplicar cambios.",
+      });
+      setMqttOpen(false);
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
   });
 
   const handleAddReading = (sensor: Sensor) => {
@@ -161,18 +337,40 @@ export default function SensorsPage() {
     setReadingOpen(true);
   };
 
-  const filteredSensors = selectedZone === "all" ? sensors : sensors.filter(s => String(s.zoneId) === selectedZone);
-  const onlineSensors = sensors.filter(s => s.status === "online").length;
-  const warningSensors = sensors.filter(s => s.status === "warning").length;
+  const handleConfigureMqtt = (sensor: Sensor) => {
+    setSelectedSensor(sensor);
+    mqttForm.reset({
+      mqttEnabled: sensor.mqttEnabled || false,
+      mqttHost: sensor.mqttHost || "",
+      mqttPort: sensor.mqttPort ? String(sensor.mqttPort) : "",
+      mqttTopic: sensor.mqttTopic || "",
+      mqttUsername: sensor.mqttUsername || "",
+      mqttPassword: sensor.mqttPassword || "",
+      jsonFields: sensor.jsonFields || "",
+    });
+    setMqttOpen(true);
+  };
+
+  const filteredSensors =
+    selectedZone === "all"
+      ? sensors
+      : sensors.filter((s) => String(s.zoneId) === selectedZone);
+  const onlineSensors = sensors.filter((s) => s.status === "online").length;
+  const warningSensors = sensors.filter((s) => s.status === "warning").length;
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Sensores IoT</h1>
-          <p className="text-sm text-muted-foreground">Monitorización ambiental en tiempo real por zonas</p>
+          <p className="text-sm text-muted-foreground">
+            Monitorización ambiental en tiempo real por zonas
+          </p>
         </div>
-        <Button onClick={() => setSensorOpen(true)} data-testid="button-new-sensor">
+        <Button
+          onClick={() => setSensorOpen(true)}
+          data-testid="button-new-sensor"
+        >
           <Plus className="w-4 h-4 mr-2" /> Añadir Sensor
         </Button>
       </div>
@@ -208,7 +406,9 @@ export default function SensorsPage() {
                 <WifiOff className="w-4 h-4 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{sensors.length - onlineSensors - warningSensors}</p>
+                <p className="text-2xl font-bold">
+                  {sensors.length - onlineSensors - warningSensors}
+                </p>
                 <p className="text-xs text-muted-foreground">Offline</p>
               </div>
             </CardContent>
@@ -219,11 +419,22 @@ export default function SensorsPage() {
       {/* Zone filter */}
       {zones.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant={selectedZone === "all" ? "default" : "outline"} onClick={() => setSelectedZone("all")} className="text-xs">
+          <Button
+            size="sm"
+            variant={selectedZone === "all" ? "default" : "outline"}
+            onClick={() => setSelectedZone("all")}
+            className="text-xs"
+          >
             Todas las Zonas
           </Button>
           {zones.map((z) => (
-            <Button key={z.id} size="sm" variant={selectedZone === String(z.id) ? "default" : "outline"} onClick={() => setSelectedZone(String(z.id))} className="text-xs">
+            <Button
+              key={z.id}
+              size="sm"
+              variant={selectedZone === String(z.id) ? "default" : "outline"}
+              onClick={() => setSelectedZone(String(z.id))}
+              className="text-xs"
+            >
               {z.name}
             </Button>
           ))}
@@ -233,12 +444,16 @@ export default function SensorsPage() {
       {/* Sensors grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48" />)}
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
         </div>
       ) : filteredSensors.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center space-y-3">
-            <div className="p-4 rounded-full bg-muted mx-auto w-fit"><Wifi className="w-8 h-8 text-muted-foreground" /></div>
+            <div className="p-4 rounded-full bg-muted mx-auto w-fit">
+              <Wifi className="w-8 h-8 text-muted-foreground" />
+            </div>
             <p className="font-semibold">Sin sensores configurados</p>
             <p className="text-sm text-muted-foreground">
               {zones.length === 0
@@ -246,85 +461,158 @@ export default function SensorsPage() {
                 : "Añada sensores para comenzar la monitorización ambiental"}
             </p>
             {zones.length === 0 && (
-              <Button variant="outline" size="sm" onClick={() => window.location.href = "/configuracion"}>Ir a Configuración</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => (window.location.href = "/configuracion")}
+              >
+                Ir a Configuración
+              </Button>
             )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredSensors.map((sensor) => (
-            <SensorCard key={sensor.id} sensor={sensor} onAddReading={handleAddReading} />
+            <SensorCard
+              key={sensor.id}
+              sensor={sensor}
+              onAddReading={handleAddReading}
+              onConfigureMqtt={handleConfigureMqtt}
+            />
           ))}
         </div>
       )}
 
       {/* New Sensor Dialog */}
       <Dialog open={sensorOpen} onOpenChange={setSensorOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wifi className="w-5 h-5 text-primary" /> Nuevo Sensor
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={sensorForm.handleSubmit((d) => createSensorMutation.mutate(d))} className="space-y-4 pt-2">
+          <form
+            onSubmit={sensorForm.handleSubmit((d) =>
+              createSensorMutation.mutate(d),
+            )}
+            className="space-y-4 pt-2"
+          >
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Nombre</Label>
-                <Input {...sensorForm.register("name")} placeholder="Sensor Polvo Molino" data-testid="input-sensor-name" />
+                <Input
+                  {...sensorForm.register("name")}
+                  placeholder="Sensor Polvo Molino"
+                  data-testid="input-sensor-name"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Código</Label>
-                <Input {...sensorForm.register("code")} placeholder="SL-P01" data-testid="input-sensor-code" />
+                <Input
+                  {...sensorForm.register("code")}
+                  placeholder="SL-P01"
+                  data-testid="input-sensor-code"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Tipo</Label>
-                <Select onValueChange={(v) => sensorForm.setValue("type", v as any)}>
-                  <SelectTrigger data-testid="select-sensor-type"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                <Select
+                  onValueChange={(v) => sensorForm.setValue("type", v as any)}
+                >
+                  <SelectTrigger data-testid="select-sensor-type">
+                    <SelectValue placeholder="Seleccione..." />
+                  </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    {Object.entries(TYPE_LABELS).map(([v, l]) => (
+                      <SelectItem key={v} value={v}>
+                        {l}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Zona</Label>
                 <Select onValueChange={(v) => sensorForm.setValue("zoneId", v)}>
-                  <SelectTrigger data-testid="select-sensor-zone"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                  <SelectTrigger data-testid="select-sensor-zone">
+                    <SelectValue placeholder="Seleccione..." />
+                  </SelectTrigger>
                   <SelectContent>
                     {zones.length === 0 ? (
-                      <SelectItem value="_none" disabled>Configure zonas primero</SelectItem>
+                      <SelectItem value="_none" disabled>
+                        Configure zonas primero
+                      </SelectItem>
                     ) : (
-                      zones.map((z) => <SelectItem key={z.id} value={String(z.id)}>{z.name}</SelectItem>)
+                      zones.map((z) => (
+                        <SelectItem key={z.id} value={String(z.id)}>
+                          {z.name}
+                        </SelectItem>
+                      ))
                     )}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Unidad de Medida</Label>
-                <Input {...sensorForm.register("unit")} placeholder="mg/m³, %, °C" data-testid="input-sensor-unit" />
+                <Input
+                  {...sensorForm.register("unit")}
+                  placeholder="mg/m³, %, °C"
+                  data-testid="input-sensor-unit"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Umbral Alerta Min</Label>
-                <Input type="number" step="0.1" {...sensorForm.register("alertThresholdMin")} />
+                <Input
+                  type="number"
+                  step="0.1"
+                  {...sensorForm.register("alertThresholdMin")}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Umbral Alerta Max</Label>
-                <Input type="number" step="0.1" {...sensorForm.register("alertThresholdMax")} />
+                <Input
+                  type="number"
+                  step="0.1"
+                  {...sensorForm.register("alertThresholdMax")}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Umbral Aviso Min</Label>
-                <Input type="number" step="0.1" {...sensorForm.register("warningThresholdMin")} />
+                <Input
+                  type="number"
+                  step="0.1"
+                  {...sensorForm.register("warningThresholdMin")}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Umbral Aviso Max</Label>
-                <Input type="number" step="0.1" {...sensorForm.register("warningThresholdMax")} />
+                <Input
+                  type="number"
+                  step="0.1"
+                  {...sensorForm.register("warningThresholdMax")}
+                />
               </div>
             </div>
             <div className="flex gap-3 justify-end pt-2 border-t border-border">
-              <Button type="button" variant="outline" onClick={() => setSensorOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={createSensorMutation.isPending} data-testid="button-submit-sensor">
-                {createSensorMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Guardar Sensor
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSensorOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={createSensorMutation.isPending}
+                data-testid="button-submit-sensor"
+              >
+                {createSensorMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}{" "}
+                Guardar Sensor
               </Button>
             </div>
           </form>
@@ -341,26 +629,164 @@ export default function SensorsPage() {
             <div className="space-y-4 pt-2">
               <div className="p-3 rounded-lg bg-muted/50 text-sm">
                 <p className="font-semibold">{selectedSensor.name}</p>
-                <p className="text-muted-foreground text-xs">{TYPE_LABELS[selectedSensor.type]} · Unidad: {selectedSensor.unit}</p>
+                <p className="text-muted-foreground text-xs">
+                  {TYPE_LABELS[selectedSensor.type]} · Unidad:{" "}
+                  {selectedSensor.unit}
+                </p>
               </div>
-              <form onSubmit={readingForm.handleSubmit((d) => createReadingMutation.mutate(d))} className="space-y-4">
+              <form
+                onSubmit={readingForm.handleSubmit((d) =>
+                  createReadingMutation.mutate(d),
+                )}
+                className="space-y-4"
+              >
                 <div className="space-y-1.5">
                   <Label>Valor ({selectedSensor.unit})</Label>
-                  <Input type="number" step="0.01" {...readingForm.register("value")} autoFocus data-testid="input-reading-value" />
-                  {readingForm.formState.errors.value && <p className="text-xs text-destructive">{readingForm.formState.errors.value.message}</p>}
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...readingForm.register("value")}
+                    autoFocus
+                    data-testid="input-reading-value"
+                  />
+                  {readingForm.formState.errors.value && (
+                    <p className="text-xs text-destructive">
+                      {readingForm.formState.errors.value.message}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Notas (opcional)</Label>
                   <Input {...readingForm.register("notes")} />
                 </div>
                 <div className="flex gap-3 justify-end pt-2 border-t border-border">
-                  <Button type="button" variant="outline" onClick={() => setReadingOpen(false)}>Cancelar</Button>
-                  <Button type="submit" disabled={createReadingMutation.isPending} data-testid="button-submit-reading">
-                    {createReadingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Guardar
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setReadingOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createReadingMutation.isPending}
+                    data-testid="button-submit-reading"
+                  >
+                    {createReadingMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : null}{" "}
+                    Guardar
                   </Button>
                 </div>
               </form>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Configuración MQTT Dialog */}
+      <Dialog open={mqttOpen} onOpenChange={setMqttOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configuración MQTT</DialogTitle>
+            <DialogDescription>
+              Conecta este sensor a un broker MQTT para recibir datos
+              automáticamente.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSensor && (
+            <form
+              onSubmit={mqttForm.handleSubmit((d) =>
+                updateMqttMutation.mutate(d),
+              )}
+              className="space-y-4 pt-2"
+            >
+              <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                <div className="space-y-0.5">
+                  <Label>Habilitar conexión MQTT</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Recibir lecturas en tiempo real
+                  </p>
+                </div>
+                <Switch
+                  checked={mqttForm.watch("mqttEnabled")}
+                  onCheckedChange={(val) =>
+                    mqttForm.setValue("mqttEnabled", val)
+                  }
+                />
+              </div>
+
+              {mqttForm.watch("mqttEnabled") && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2 space-y-1.5">
+                      <Label>Host / Servidor</Label>
+                      <Input
+                        {...mqttForm.register("mqttHost")}
+                        placeholder="mqtt.ejemplo.com"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Puerto</Label>
+                      <Input
+                        type="number"
+                        {...mqttForm.register("mqttPort")}
+                        placeholder="1883"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Tema (Topic)</Label>
+                    <Input
+                      {...mqttForm.register("mqttTopic")}
+                      placeholder="fabrica/zona1/sensor_polvo"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Usuario</Label>
+                      <Input {...mqttForm.register("mqttUsername")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Contraseña</Label>
+                      <Input
+                        type="password"
+                        {...mqttForm.register("mqttPassword")}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Campos JSON a extraer</Label>
+                    <Input
+                      {...mqttForm.register("jsonFields")}
+                      placeholder="value, payload.humidity"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Rutas separadas por comas (ej: payload.value)
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMqttOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={updateMqttMutation.isPending}>
+                  {updateMqttMutation.isPending && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Guardar y Conectar
+                </Button>
+              </div>
+            </form>
           )}
         </DialogContent>
       </Dialog>

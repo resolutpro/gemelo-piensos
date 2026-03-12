@@ -192,6 +192,13 @@ export const sensors = pgTable("sensors", {
   active: boolean("active").notNull().default(true),
   lastReadingAt: timestamp("last_reading_at"),
   lastValue: real("last_value"),
+  mqttEnabled: boolean("mqtt_enabled").notNull().default(false),
+  mqttHost: text("mqtt_host"),
+  mqttPort: integer("mqtt_port"),
+  mqttTopic: text("mqtt_topic"),
+  mqttUsername: text("mqtt_username"),
+  mqttPassword: text("mqtt_password"),
+  jsonFields: text("json_fields"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -202,7 +209,7 @@ export const insertSensorSchema = createInsertSchema(sensors).omit({
 export type InsertSensor = z.infer<typeof insertSensorSchema>;
 export type Sensor = typeof sensors.$inferSelect;
 
-// ─── Sensor Readings ──────────────────────────────────────────────────────────
+// lv�── Sensor Readings ──────────────────────────────────────────────────────────
 
 export const sensorReadings = pgTable("sensor_readings", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

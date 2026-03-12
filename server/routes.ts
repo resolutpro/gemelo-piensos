@@ -384,6 +384,13 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/sensors/refresh-mqtt", requireAuth, async (req, res, next) => {
+    try {
+      const { mqttService } = await import("./mqtt");
+      await mqttService.refreshMqttConnections();
+      res.sendStatus(200);
+    } catch (err) { next(err); }
+  });
   app.delete("/api/sensors/:id", requireAuth, async (req, res, next) => {
     try {
       await storage.deleteSensor(Number(req.params.id));
