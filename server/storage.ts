@@ -121,6 +121,10 @@ export interface IStorage {
   getNirAnalysesByLot(lotId: number): Promise<NirAnalysis[]>;
   getNirAnalysisByBatch(batchId: number): Promise<NirAnalysis | undefined>;
   createNirAnalysis(data: InsertNirAnalysis): Promise<NirAnalysis>;
+  updateNirAnalysis(
+    id: number,
+    data: Partial<InsertNirAnalysis>,
+  ): Promise<NirAnalysis>;
 
   // Sensors
   getSensors(): Promise<(Sensor & { zone?: Zone })[]>;
@@ -952,7 +956,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notificationContacts.id, id));
   }
 
-  // ─── Lógica centralizada de Lectura de Sensores y Alertas ─────────────────
+  // ─── NIR─────────────────
+
+  async updateNirAnalysis(
+    id: number,
+    data: Partial<InsertNirAnalysis>,
+  ): Promise<NirAnalysis> {
+    const [analysis] = await db
+      .update(nirAnalyses)
+      .set(data)
+      .where(eq(nirAnalyses.id, id))
+      .returning();
+    return analysis;
+  }
 }
 
 export const storage = new DatabaseStorage();

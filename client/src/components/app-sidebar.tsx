@@ -1,12 +1,29 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard, Package, Wifi, FlaskConical, Factory,
-  CheckCircle, GitBranch, Bell, Settings, LogOut, Cpu
+  LayoutDashboard,
+  Package,
+  Wifi,
+  FlaskConical,
+  Factory,
+  CheckCircle,
+  GitBranch,
+  Bell,
+  Settings,
+  LogOut,
+  Cpu,
+  Scan,
 } from "lucide-react";
 import {
-  Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
-  SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -16,6 +33,7 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Recepción", url: "/recepcion", icon: Package },
   { title: "Sensores", url: "/sensores", icon: Wifi },
+  { title: "Espectrómetro", url: "/espectrometro", icon: Scan },
   { title: "Simulaciones", url: "/simulaciones", icon: FlaskConical },
   { title: "Producción", url: "/produccion", icon: Factory },
   { title: "Verificación", url: "/verificacion", icon: CheckCircle },
@@ -32,8 +50,13 @@ export function AppSidebar() {
   const { user, logoutMutation } = useAuth();
 
   const initials = user?.name
-    ? user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-    : user?.username?.slice(0, 2).toUpperCase() ?? "U";
+    ? user.name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : (user?.username?.slice(0, 2).toUpperCase() ?? "U");
 
   return (
     <Sidebar>
@@ -43,8 +66,12 @@ export function AppSidebar() {
             <Cpu className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <p className="font-bold text-sidebar-foreground text-sm tracking-wide">SHADOW PILOT</p>
-            <p className="text-xs text-sidebar-foreground/50">Plataforma Industrial</p>
+            <p className="font-bold text-sidebar-foreground text-sm tracking-wide">
+              SHADOW PILOT
+            </p>
+            <p className="text-xs text-sidebar-foreground/50">
+              Plataforma Industrial
+            </p>
           </div>
         </div>
       </SidebarHeader>
@@ -57,7 +84,9 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = location === item.url || (item.url !== "/" && location.startsWith(item.url));
+                const isActive =
+                  location === item.url ||
+                  (item.url !== "/" && location.startsWith(item.url));
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -65,9 +94,14 @@ export function AppSidebar() {
                       isActive={isActive}
                       data-testid={`nav-${item.title.toLowerCase()}`}
                     >
-                      <Link href={item.url} className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors">
+                      <Link
+                        href={item.url}
+                        className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors"
+                      >
                         <item.icon className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm font-medium">{item.title}</span>
+                        <span className="text-sm font-medium">
+                          {item.title}
+                        </span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -87,10 +121,19 @@ export function AppSidebar() {
                 const isActive = location === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive} data-testid={`nav-${item.title.toLowerCase()}`}>
-                      <Link href={item.url} className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      data-testid={`nav-${item.title.toLowerCase()}`}
+                    >
+                      <Link
+                        href={item.url}
+                        className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors"
+                      >
                         <item.icon className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm font-medium">{item.title}</span>
+                        <span className="text-sm font-medium">
+                          {item.title}
+                        </span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -109,8 +152,12 @@ export function AppSidebar() {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-sidebar-foreground truncate">{user?.name || user?.username}</p>
-            <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email}</p>
+            <p className="text-xs font-semibold text-sidebar-foreground truncate">
+              {user?.name || user?.username}
+            </p>
+            <p className="text-xs text-sidebar-foreground/50 truncate">
+              {user?.email}
+            </p>
           </div>
           <Button
             size="icon"

@@ -36,6 +36,19 @@ export async function registerRoutes(
 ): Promise<Server> {
   setupAuth(app);
 
+  app.patch("/api/nir-analyses/:id", requireAuth, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+
+      const body = req.body;
+      const updatedNir = await storage.updateNirAnalysis(id, body);
+      res.json(updatedNir);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   //CRUD DE CONTACTOS ---
   app.get("/api/contacts", requireAuth, async (req, res, next) => {
     try {

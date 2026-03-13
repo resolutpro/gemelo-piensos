@@ -22,6 +22,7 @@ import TraceabilityPage from "@/pages/traceability-page";
 import AlertsPage from "@/pages/alerts-page";
 import ConfigPage from "@/pages/config-page";
 import { useAuth } from "@/hooks/use-auth";
+import EspectrometroPage from "@/pages/espectrometro-page";
 
 const sidebarStyle = {
   "--sidebar-width": "15rem",
@@ -57,7 +58,10 @@ function AppLayout() {
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center h-12 px-4 border-b border-border bg-background flex-shrink-0">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="text-muted-foreground" />
+            <SidebarTrigger
+              data-testid="button-sidebar-toggle"
+              className="text-muted-foreground"
+            />
           </header>
           <main className="flex-1 overflow-auto">
             <Switch>
@@ -65,14 +69,33 @@ function AppLayout() {
               <ProtectedRoute path="/recepcion" component={ReceptionPage} />
               <ProtectedRoute path="/recepcion/:id" component={LotDetailPage} />
               <ProtectedRoute path="/sensores" component={SensorsPage} />
-              <ProtectedRoute path="/simulaciones" component={SimulationsPage} />
-              <ProtectedRoute path="/simulaciones/nueva" component={NewSimulationPage} />
-              <ProtectedRoute path="/simulaciones/:id" component={SimulationDetailPage} />
+              <ProtectedRoute
+                path="/simulaciones"
+                component={SimulationsPage}
+              />
+              <ProtectedRoute
+                path="/simulaciones/nueva"
+                component={NewSimulationPage}
+              />
+              <ProtectedRoute
+                path="/simulaciones/:id"
+                component={SimulationDetailPage}
+              />
               <ProtectedRoute path="/produccion" component={ProductionPage} />
-              <ProtectedRoute path="/verificacion" component={VerificationPage} />
-              <ProtectedRoute path="/trazabilidad" component={TraceabilityPage} />
+              <ProtectedRoute
+                path="/verificacion"
+                component={VerificationPage}
+              />
+              <ProtectedRoute
+                path="/trazabilidad"
+                component={TraceabilityPage}
+              />
               <ProtectedRoute path="/alertas" component={AlertsPage} />
               <ProtectedRoute path="/configuracion" component={ConfigPage} />
+              <ProtectedRoute
+                path="/espectrometro"
+                component={EspectrometroPage}
+              />
               <Route component={NotFound} />
             </Switch>
           </main>
