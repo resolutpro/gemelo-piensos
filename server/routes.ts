@@ -49,6 +49,18 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/nir-analyses/:id", requireAuth, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+
+      await storage.deleteNirAnalysis(id);
+      res.sendStatus(204);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   //CRUD DE CONTACTOS ---
   app.get("/api/contacts", requireAuth, async (req, res, next) => {
     try {

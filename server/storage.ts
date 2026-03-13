@@ -969,6 +969,10 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return analysis;
   }
+
+  async deleteNirAnalysis(id: number): Promise<void> {
+    await db.delete(nirAnalyses).where(eq(nirAnalyses.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();

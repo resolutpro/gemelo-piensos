@@ -34,7 +34,7 @@ const navItems = [
   { title: "Recepción", url: "/recepcion", icon: Package },
   { title: "Sensores", url: "/sensores", icon: Wifi },
   { title: "Espectrómetro", url: "/espectrometro", icon: Scan },
-  { title: "Simulaciones", url: "/simulaciones", icon: FlaskConical },
+  { title: "Mezclas", url: "/simulaciones", icon: FlaskConical },
   { title: "Producción", url: "/produccion", icon: Factory },
   { title: "Verificación", url: "/verificacion", icon: CheckCircle },
   { title: "Trazabilidad", url: "/trazabilidad", icon: GitBranch },
